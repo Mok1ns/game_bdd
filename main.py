@@ -53,6 +53,17 @@ def get_available_heroes (team, list_of_heroes):
 
     return available_heroes
 
+def get_characters(db):
+    characters = []
+    for char in db.characters.find():
+        characters.append({
+            "name": char["nom"],
+            "HP": char["PV"],
+            "ATK": char["ATK"],
+            "DEF": char["DEF"]
+        })
+    return characters
+
 def display_available_heroes(available_heroes):
     print("\nHéros disponibles:")
     for idx, hero in enumerate(available_heroes):
@@ -74,19 +85,26 @@ def create_team(list_of_heroes):
 def play_game(db):
     username = username_func()
     print(f"Username : {username}")
-    team = create_team(character)
+
+    characters = get_characters(db)
+
+    team = create_team(characters)
+
+    print("\nVotre équipe :")
+    for hero in team:
+        print(hero["name"])
    # score = combat(team)
    # display_score(score)
    # save_score(username, score)
 
 def main():
     db = get_db()
+
     main_menu()
     choice = get_user_choice("Choisissez une option: ", 1, 3)
 
     if choice == 1:
-        db = get_db()
-        play_game()
+        play_game(db)
 
     elif choice == 2:
         display_ranking()
