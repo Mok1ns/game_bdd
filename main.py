@@ -1,59 +1,75 @@
 from db_init import get_db
+import random
 
 def main_menu():
-    print("+       ---BIENVENUE---   +")
-    print("1 -      LANCER LE JEU")
-    print("2 -      LEADERBOARD")
-    print("3 -      QUITTER LE PROGRAMME")
-
+    print(f"\n꧁----------⎝ 𓆩༺✧ ༻𓆪⎠----------꧂")
+    print("  ✦     ---BIENVENUE---      ✦")
+    print("1 -      LANCER LE JEU       - ")
+    print("2 -       LEADERBOARD        - ")
+    print("3 -   QUITTER LE PROGRAMME   - ")
 
 def is_int(number, min_val, max_val):
+    # verifier si c'est est un nombre
     if not number.isnumeric():
         return False
-    
     number = int(number)
-
+    # faire une condition pour comparer le nombre aux valeurs max et min
     if number < min_val:
         return False
-    
     if number > max_val:
         return False
-
     return True
 
-
 def get_user_choice(text, min_val, max_val):
+    print(f"------------------------------")
     while True:
         choice = input(text)
+        # on doit verifier si c'est un nombre et ses filtres
         if is_int(choice, min_val, max_val):
             return int(choice)
         print(f"Erreur : Veuillez choisir un nombre entre {min_val} et {max_val}")
 
-def display_ranking():
-    pass
+def display_ranking(db):
+    print(f"\n꧁----------⎝ 𓆩༺✧ ༻𓆪⎠----------꧂")
+    print(f"  ✦    ---LEADERBOARD---     ✦")
+    print("")
+    # recuperer les scores
+    scores = db.leaderboard.find().sort("score", -1).limit(3)
+    rank = 1
+    for entry in scores:
+        print(f"      {rank}. {entry['username']} - {entry['score']} vague(s)")
+        rank += 1
+    print(f"\n------------------------------")
+    main()
 
 def username_check(username):
+    # filtrer si le username est inferieur à 0 ou supérieur à 20
     return len(username) > 0 and len(username) <= 20
 
 def username_func():
     while True:
         username = input("Entrez votre nom d'utilisateur : ")
+        # voir si le username est valide 
         if username_check(username):
             return username
         print("Erreur : le nom doit contenir entre 1 et 20 caractères.")
 
 def is_team_full(team):
+    # verifier si la team est bien constituée de 3
     return len(team) >= 3
 
 def get_available_heroes (team, list_of_heroes): 
     available_heroes = []
+    # rajouter chaque hero dans la liste
     for hero in list_of_heroes:
+        # verifier qu'il n'est pas déjà dans l'équipe
         if hero not in team:
             available_heroes.append(hero)
 
     return available_heroes
 
 def get_characters(db):
+    # faire une liste pour stocker les heros avec les caractéristiques 
     characters = []
     for char in db.characters.find():
         characters.append({
@@ -65,52 +81,159 @@ def get_characters(db):
     return characters
 
 def display_available_heroes(available_heroes):
+    # afficher les héros disponibles avec leurs stats
     print("\nHéros disponibles:")
     for idx, hero in enumerate(available_heroes):
         print(f"{idx + 1}. {hero['name']} (HP: {hero['HP']}, ATK: {hero['ATK']}, DEF: {hero['DEF']})")
 
 def ask_hero_choice(available_heroes):
+    # créer un moyen de choisir ses heros dans les limites du nombre de héros
     choice = get_user_choice("Choisissez un héros (1-{}): ".format(len(available_heroes)), 1, len(available_heroes))
     return available_heroes[choice - 1]
 
 def create_team(list_of_heroes):
+    # faire une liste pour l'équipe et mettre les héros séléctionnés dedans tout en vérifiant
     team = []
     while not is_team_full(team):
+        # recuperer les heros dispo
         available_heroes = get_available_heroes(team, list_of_heroes)
+        # afficher les heros dispo
         display_available_heroes(available_heroes)
+        # demander le choix des heros
         hero = ask_hero_choice(available_heroes)
-        team.append(hero)
+        # le rajouter 
+        team.append(hero)  
     return team
  
+def generate_monster(db, wave):
+    # générer les monstres et les afficher. Il faut que ca prenne random dans la liste des monstres 
+    monsters = list(db.monsters.find())
+    raw = random.choice(monsters)
+    monster = {
+        "name": raw["nom"],
+        "HP": raw["PV"],
+        "ATK": raw["ATK"],
+        "DEF": raw["DEF"]
+    }
+    print(f"\nUn {monster['name']} apparaît !")
+    print(f"HP: {monster['HP']} | ATK: {monster['ATK']} | DEF: {monster['DEF']}")
+    return monster
+
+def calculate_team_damage(team, monster):
+    # additionner toutes les stats d'attaque de l'équipe et la rendre en dégat
+    total_atk = sum(hero["ATK"] for hero in team)
+    damage = max(1, total_atk - monster["DEF"])
+    return damage
+
+def calculate_monster_damage(team, monster):
+    # dégat par rapport à la moyenne de défense de l'équipe
+    avg_def = sum(hero["DEF"] for hero in team) // len(team)
+    damage = max(1, monster["ATK"] - avg_def)
+    return damage
+
+def fight_rounds(team, monster, team_hp, monster_hp):
+    return fight_turn(team, monster, team_hp, monster_hp)
+
+def fight_turn(team, monster, team_hp, monster_hp):
+    # le tour de l'équipe et ses dégats qui seront soustrait par rapport aux dégats des monstres
+    damage_to_monster = calculate_team_damage(team, monster)
+    monster_hp -= damage_to_monster
+    print(f"Votre équipe inflige {damage_to_monster} dégâts ! HP monstre restant : {max(monster_hp,0)}")
+    if monster_hp <= 0:
+        return team_hp, 0 
+
+    # le tour des monstres et ses dégats qui seront soustrait par rapport aux dégats de l'équipe
+    damage_to_team = calculate_monster_damage(team, monster)
+    team_hp -= damage_to_team
+    print(f"Le monstre inflige {damage_to_team} dégâts ! HP équipe restante : {max(team_hp,0)}")
+    return team_hp, monster_hp
+
+def fight(team, monster, team_hp):
+    # on récupere l'HP du monstre
+    monster_hp = monster["HP"]
+    print("\nCombat en cours !")
+
+    # faire une boucle pour vérifier la continuation des combats par rapport aux hps
+    while team_hp > 0 and monster_hp > 0:
+        team_hp, monster_hp = fight_rounds(team, monster, team_hp, monster_hp)
+
+        if monster_hp <= 0:
+            print("Vous avez vaincu le monstre !")
+            return True, team_hp
+
+        if team_hp <= 0:
+            print("Votre équipe a été vaincue !")
+            return False, team_hp
+
+def score(wave):
+    return wave -1
+
+def save_score(db, username, score_final):
+    # inserer le username et son score dans la db
+    score_data = {
+        "username": username,
+        "score": score_final,
+    }
+
+    # Insérer dans la collection leaderboard
+    db.leaderboard.insert_one(score_data)
+    print(f"Score de {username} sauvegardé : {score_final} vague(s)")
+
+def wave(db, team, username):
+    wave = 1
+    scores = score(wave)
+    # additionner tous les hp de l'équipe pour donner l'hp de l'équipe
+    team_hp = sum(hero["HP"] for hero in team)
+    while True:
+        print(f"\n+   VAGUE {wave}   +")
+        # generer les monstres et prendre un aléatoire au début
+        monster = generate_monster(db, wave)
+        # commencer le fight
+        victory, team_hp = fight(team, monster, team_hp)
+
+        # condition si perte et donc fin de jeu avec son score
+        if not victory:
+            print(f"\nGame Over ! Vous avez survécu {wave - 1} vague(s).")
+            score_final = score(wave)
+            # on enregistre le score
+            save_score(db, username,score_final)
+            break
+
+        print(f"\nVague {wave} terminée ! HP restants : {team_hp}")
+        wave += 1
+
+        print(f"\nScore final : {scores} vague(s) complétée(s)")
+
 def play_game(db):
+    # on demande un nom d'utilisateur
     username = username_func()
     print(f"Username : {username}")
 
+    # récupérer les héros et créer l'équipe
     characters = get_characters(db)
-
     team = create_team(characters)
 
+    # montrer l'équipe
     print("\nVotre équipe :")
     for hero in team:
         print(hero["name"])
-   # score = combat(team)
-   # display_score(score)
-   # save_score(username, score)
+
+    # systeme de vague d'ennemie
+    wave(db,team,username) 
 
 def main():
     db = get_db()
-
+    # menu principal
     main_menu()
+    # choix de l'utilisateur
     choice = get_user_choice("Choisissez une option: ", 1, 3)
-
+    print("------------------------------")
+    # les choix 1-3 de l'utilisateur
     if choice == 1:
         play_game(db)
-
     elif choice == 2:
-        display_ranking()
-
+        display_ranking(db)
     elif choice == 3:
         exit()
-
 
 main()
