@@ -47,24 +47,13 @@ def insert_monster():
     db.monsters.insert_many(monster)
     print("Monstres insérés avec succès!")
 
-def insert_items():
-    db.items.delete._many({})
-    print("Anciens items supprimés")
-
-    item = [
-        {"nom": "Épée dorée", "ATK": 15, "DEF": 5, "PV": 5},
-        {"nom": "Crystal magique enchanté", "ATK": 15, "DEF": 2, "PV": 5},
-        {"nom": "Bouclier Grande Muraille Chinoise", "ATK": 5, "DEF": 15, "PV": 15},
-        {"nom": "Potion boost HP", "ATK": 1, "DEF": 1, "PV": 20},
-    ]
-    db.items.insert_many(item)
-    print("Items ajoutés avec succès!")
 
 if __name__ == "__main__":
+    # on essaie un bout de code et le code saura s'attendre à une erreur
     try:
         insert_character()
         insert_monster()
-        insert_items()
         print("Base de données initialisée avec succès!")
+    # Exception contient toutes les erreurs et on va tout stocker dans e pour afficher en cas d'erreur
     except Exception as e:
         print(f"Erreur lors de l'initialisation: {e}")

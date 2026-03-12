@@ -22,6 +22,5 @@ def main():
         elif choice == 3:
             exit()
 
-# Si le dossier s'appelle main, on lance la fonction main
 if __name__ == "__main__":
     main()
